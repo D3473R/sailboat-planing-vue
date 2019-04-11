@@ -15,7 +15,13 @@
         @click="handleMapClick"
       >
         <l-tile-layer :url="url"></l-tile-layer>
-        <l-marker v-for="item in markers" :key="item.id" :lat-lng="item.latlng" @click="handleMarkerClick"></l-marker>
+        <l-marker v-for="item in markers" :key="item.id" :lat-lng="item.latlng" :draggable="true" @click="handleMarkerClick" @dragend="handleMarkerDragend($event, item.id)">
+          <l-popup>
+            <div v-on:click="handleTrashClick($event, item.id)">
+              <unicon class="icon" name="trash-alt" fill="royalblue"></unicon>
+            </div>
+            </l-popup>
+        </l-marker>
         <l-polyline
           :lat-lngs="polyline.latlngs"
           :color="polyline.color"
@@ -28,12 +34,13 @@
 
 <script>
 import Vue from 'vue'
-import { LMap, LTileLayer, LPolyline, LMarker } from 'vue2-leaflet'
+import { LMap, LTileLayer, LPolyline, LMarker, LPopup } from 'vue2-leaflet'
 
 Vue.component('l-map', LMap)
 Vue.component('l-tile-layer', LTileLayer)
 Vue.component('l-polyline', LPolyline)
 Vue.component('l-marker', LMarker)
+Vue.component('l-popup', LPopup)
 
 export default {
   data () {
@@ -70,9 +77,17 @@ export default {
       this.polyline.uuids.push(uuid);
       this.polyline.latlngs.push(event.latlng);
     },
-    handleMarkerClick(event) {
-      // eslint-disable-next-line no-console
-      console.log(event);
+    handleMarkerClick(event) { // eslint-disable-line no-unused-vars
+    },
+    handleMarkerDragend(event, id) {
+      const index = this.polyline.uuids.indexOf(id);
+      Vue.set(this.polyline.latlngs, index, event.target._latlng)
+    },
+    handleTrashClick(event, id) {
+      const index = this.polyline.uuids.indexOf(id);
+      this.polyline.latlngs.splice(index, 1);
+      this.polyline.uuids.splice(index, 1);
+      this.markers.splice(index, 1);
     }
   }
 }
@@ -99,5 +114,9 @@ export default {
   grid-row-start: 2;
   width: 100%;
   height: 100%;
+}
+
+.icon {
+  cursor: pointer;
 }
 </style>
