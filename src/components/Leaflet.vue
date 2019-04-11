@@ -38,7 +38,7 @@ Vue.component('l-marker', LMarker)
 export default {
   data () {
     return {
-      url: 'http://{s}.tile.osm.org/{z}/{x}/{y}.png',
+      url: 'https://{s}.tile.osm.org/{z}/{x}/{y}.png',
       zoom: 14,
       center: [60.103282, 19.96425],
       bounds: null,
