@@ -1,9 +1,15 @@
 <template>
   <div class="container">
-    <div class="info">
-      <p>Center: {{ center }}</p>
-      <p>Zoom: {{ zoom }}</p>
-      <p>Bounds: {{ bounds }}</p>
+    <div class="map-info">
+      <pre class="pre-wrapper">
+        <div>
+          <p>Center:</p><code>{{ center.lat }}, {{ center.lng }}</code>
+          <p>Zoom:</p><code>{{ zoom }}</code>
+        </div>
+        <div>
+          <p>Bounds:</p><code>{{ bounds }}</code>
+        </div>
+      </pre>
     </div>
     <div class="map">
       <l-map
@@ -15,56 +21,78 @@
         @click="handleMapClick"
       >
         <l-tile-layer :url="url"></l-tile-layer>
-        <l-marker v-for="item in markers" :key="item.id" :lat-lng="item.latlng" :draggable="true" @click="handleMarkerClick" @dragend="handleMarkerDragend($event, item.id)">
-          <l-popup>
-            <div v-on:click="handleTrashClick($event, item.id)">
-              <unicon class="icon" name="trash-alt" fill="royalblue"></unicon>
-            </div>
-            </l-popup>
-        </l-marker>
-        <l-polyline
-          :lat-lngs="polyline.latlngs"
-          :color="polyline.color"
+        <l-marker
+          v-for="item in markers"
+          :key="item.id"
+          :lat-lng="item.latlng"
+          :draggable="true"
+          @click="handleMarkerClick"
+          @drag="handleMarkerDrag($event, item.id)"
         >
-        </l-polyline>
+          <l-popup>
+            <div v-on:click="handleSaveClick">
+              <v-btn color="primary" dark class="popup-button">
+                Save
+                <v-icon dark right>save</v-icon>
+              </v-btn>
+            </div>
+            <div v-on:click="handleDeleteClick($event, item.id)">
+              <v-btn color="red" dark class="popup-button">
+                Delete
+                <v-icon dark right>delete</v-icon>
+              </v-btn>
+            </div>
+          </l-popup>
+        </l-marker>
+        <l-polyline ref="polyline" :lat-lngs="polyline.latlngs" :color="polyline.color"></l-polyline>
       </l-map>
     </div>
   </div>
 </template>
 
 <script>
-import Vue from 'vue'
-import { LMap, LTileLayer, LPolyline, LMarker, LPopup } from 'vue2-leaflet'
+import Vue from "vue";
+import { LMap, LTileLayer, LPolyline, LMarker, LPopup } from "vue2-leaflet";
+import FileSaver from "file-saver";
 
-Vue.component('l-map', LMap)
-Vue.component('l-tile-layer', LTileLayer)
-Vue.component('l-polyline', LPolyline)
-Vue.component('l-marker', LMarker)
-Vue.component('l-popup', LPopup)
+Vue.component("l-map", LMap);
+Vue.component("l-tile-layer", LTileLayer);
+Vue.component("l-polyline", LPolyline);
+Vue.component("l-marker", LMarker);
+Vue.component("l-popup", LPopup);
 
 export default {
-  data () {
+  data() {
     return {
-      url: 'https://{s}.tile.osm.org/{z}/{x}/{y}.png',
+      url: "https://{s}.tile.osm.org/{z}/{x}/{y}.png",
       zoom: 14,
-      center: [60.103282, 19.96425],
-      bounds: null,
+      center: { lat: 60.098155895160154, lng: 19.964489839048337 },
+      bounds: {
+        _southWest: {
+          lat: 60.080070432727034,
+          lng: 19.905252307376422
+        },
+        _northEast: {
+          lat: 60.11545647718221,
+          lng: 20.024471133670364
+        }
+      },
       polyline: {
         uuids: [],
         latlngs: [],
-        color: 'green'
+        color: "green"
       },
       markers: []
     };
   },
   methods: {
-    zoomUpdated (zoom) {
+    zoomUpdated(zoom) {
       this.zoom = zoom;
     },
-    centerUpdated (center) {
+    centerUpdated(center) {
       this.center = center;
     },
-    boundsUpdated (bounds) {
+    boundsUpdated(bounds) {
       this.bounds = bounds;
     },
     handleMapClick(event) {
@@ -72,25 +100,35 @@ export default {
       this.markers.push({
         id: uuid,
         latlng: event.latlng,
-        content: 'Another'
+        content: "Another"
       });
       this.polyline.uuids.push(uuid);
       this.polyline.latlngs.push(event.latlng);
     },
-    handleMarkerClick(event) { // eslint-disable-line no-unused-vars
-    },
-    handleMarkerDragend(event, id) {
+    /* eslint-disable */
+    handleMarkerClick(event) {},
+    /* eslint-enable */
+    handleMarkerDrag(event, id) {
       const index = this.polyline.uuids.indexOf(id);
-      Vue.set(this.polyline.latlngs, index, event.target._latlng)
+      Vue.set(this.polyline.latlngs, index, event.target._latlng);
     },
-    handleTrashClick(event, id) {
+    handleSaveClick() {
+      const blob = new Blob(
+        [JSON.stringify(this.$refs.polyline.mapObject.toGeoJSON())],
+        {
+          type: "application/json"
+        }
+      );
+      FileSaver.saveAs(blob, "waypoints.json");
+    },
+    handleDeleteClick(event, id) {
       const index = this.polyline.uuids.indexOf(id);
       this.polyline.latlngs.splice(index, 1);
       this.polyline.uuids.splice(index, 1);
       this.markers.splice(index, 1);
     }
   }
-}
+};
 </script>
 
 <style>
@@ -101,10 +139,10 @@ export default {
   height: 100%;
   display: grid;
   grid-template-columns: 10% auto 10%;
-  grid-template-rows: 20% auto 5%;
+  grid-template-rows: 300px auto 5%;
 }
 
-.info {
+.map-info {
   grid-column-start: 2;
   grid-row-start: 1;
 }
@@ -118,5 +156,25 @@ export default {
 
 .icon {
   cursor: pointer;
+}
+.pre-wrapper {
+  display: flex;
+  justify-content: space-evenly;
+}
+.pre-wrapper div {
+  flex-grow: 1;
+  width: 50%;
+}
+.pre-wrapper div code {
+  width: 80%;
+}
+.popup-button {
+  width: 100%;
+}
+.v-btn {
+  margin: 6px 0;
+}
+.leaflet-shadow-pane {
+  display: none;
 }
 </style>
