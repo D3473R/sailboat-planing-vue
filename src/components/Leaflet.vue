@@ -13,6 +13,7 @@
     </div>
     <div class="map">
       <l-map
+        ref="map"
         :zoom="zoom"
         :center="center"
         @update:zoom="zoomUpdated"
@@ -26,7 +27,6 @@
           :key="item.id"
           :lat-lng="item.latlng"
           :draggable="true"
-          @click="handleMarkerClick"
           @drag="handleMarkerDrag($event, item.id)"
         >
           <l-popup>
@@ -42,9 +42,16 @@
                 <v-icon dark right>delete</v-icon>
               </v-btn>
             </div>
+            <div v-if="showCyclic(item.id)" v-on:click="handleCyclicClick">
+              <v-btn color="green" dark class="popup-button">
+                Cyclic
+                <v-icon dark right>refresh</v-icon>
+              </v-btn>
+            </div>
           </l-popup>
         </l-marker>
         <l-polyline ref="polyline" :lat-lngs="polyline.latlngs" :color="polyline.color"></l-polyline>
+        <l-polyline v-if="cyclic" ref="polylineCycle" :lat-lngs="polylineCycle.latlngs" :color="polylineCycle.color"></l-polyline>
       </l-map>
     </div>
   </div>
@@ -80,9 +87,14 @@ export default {
       polyline: {
         uuids: [],
         latlngs: [],
+        color: "blue"
+      },
+      polylineCycle: {
+        latlngs: [],
         color: "green"
       },
-      markers: []
+      markers: [],
+      cyclic: false
     };
   },
   methods: {
@@ -95,6 +107,26 @@ export default {
     boundsUpdated(bounds) {
       this.bounds = bounds;
     },
+    isFirstMarker(id) {
+      return(this.polyline.uuids.indexOf(id) === 0)
+    },
+    isLastMarker(id) {
+      return(this.polyline.uuids.indexOf(id) === this.polyline.uuids.length - 1)
+    },
+    showCyclic(id) {
+      return(this.polyline.uuids.length > 1 && this.isLastMarker(id))
+    },
+    needUpdateCyclic(id) {
+      return(this.polyline.uuids.length > 1 && (this.isFirstMarker(id) || this.isLastMarker(id)))
+    },
+    updateCyclic() {
+      if (this.cyclic) {
+        const first = this.polyline.latlngs[0];
+        const last = this.polyline.latlngs[this.polyline.latlngs.length - 1];
+        Vue.set(this.polylineCycle.latlngs, 0, first);
+        Vue.set(this.polylineCycle.latlngs, 1, last);
+      }
+    },
     handleMapClick(event) {
       const uuid = this.$uuid.v4();
       this.markers.push({
@@ -104,28 +136,41 @@ export default {
       });
       this.polyline.uuids.push(uuid);
       this.polyline.latlngs.push(event.latlng);
+      this.updateCyclic();
     },
-    /* eslint-disable */
-    handleMarkerClick(event) {},
-    /* eslint-enable */
     handleMarkerDrag(event, id) {
       const index = this.polyline.uuids.indexOf(id);
       Vue.set(this.polyline.latlngs, index, event.target._latlng);
+      if (this.needUpdateCyclic(id)) {
+        this.updateCyclic();
+      }
     },
     handleSaveClick() {
+      const geoJson = this.$refs.polyline.mapObject.toGeoJSON();
+      Vue.set( geoJson['properties'], 'cyclic', this.polyline.uuids.length > 1 && this.cyclic);
       const blob = new Blob(
-        [JSON.stringify(this.$refs.polyline.mapObject.toGeoJSON())],
+        [JSON.stringify(geoJson)],
         {
           type: "application/json"
         }
       );
       FileSaver.saveAs(blob, "waypoints.json");
+      this.$refs.map.mapObject.closePopup();
     },
     handleDeleteClick(event, id) {
+      const needCyclicUpdate = this.needUpdateCyclic(id);
       const index = this.polyline.uuids.indexOf(id);
       this.polyline.latlngs.splice(index, 1);
       this.polyline.uuids.splice(index, 1);
       this.markers.splice(index, 1);
+      if (needCyclicUpdate) {
+        this.updateCyclic();
+      }
+    },
+    handleCyclicClick() {
+      this.cyclic = !this.cyclic;
+      this.updateCyclic();
+      this.$refs.map.mapObject.closePopup();
     }
   }
 };
