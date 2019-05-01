@@ -10,6 +10,7 @@ delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require('./assets/baseline-place-24px.svg'),
   iconUrl: require('./assets/baseline-place-24px.svg'),
+  shadowUrl: require('./assets/blank.png'),
   iconSize: [40, 40],
   iconAnchor: [19, 36]
 });
